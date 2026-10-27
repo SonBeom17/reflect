@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#FD2B2C">
+<title>오늘의 회고 · Let's Grow</title>
+<style>
+  :root { --red: #FD2B2C; --coral: #FF8A72; --ink: #212121; --muted: #8A8784; --bg: #F7F5F4; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif; background: var(--bg); color: var(--ink); }
+  .bar { background: var(--red); color: #fff; height: 52px; display: flex; align-items: center; padding: 0 16px; font-weight: 800; font-size: 18px; }
+  .bar small { font-weight: 500; opacity: .85; font-size: 13px; margin-left: 6px; }
+  .hero { background: linear-gradient(160deg, var(--red) 0%, #FF5A4E 45%, var(--coral) 100%); color: #fff; text-align: center; padding: 32px 16px 72px; }
+  .hero h1 { margin: 6px 0 0; font-size: 26px; }
+  .card { max-width: 480px; margin: -48px auto 0; background: #fff; border-radius: 16px; padding: 24px 20px; text-align: center;
+          box-shadow: 0 6px 24px rgba(253,43,44,.08), 0 1px 3px rgba(0,0,0,.05); margin-left: 16px; margin-right: 16px; }
+  @media (min-width: 512px) { .card { margin-left: auto; margin-right: auto; } }
+  .spinner { width: 36px; height: 36px; border: 4px solid #FFE1E0; border-top-color: var(--red); border-radius: 50%; margin: 8px auto 16px; animation: spin .9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .muted { color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .btn { display: inline-block; margin-top: 16px; background: var(--red); color: #fff; border: 0; border-radius: 999px; padding: 13px 24px; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="bar">Let’s Grow<small>K-뉴딜 아카데미</small></div>
+<div class="hero"><div>하루를 돌아보는 시간</div><h1>오늘의 회고</h1></div>
+<main class="card">
+  <div id="loading">
+    <div class="spinner" aria-hidden="true"></div>
+    <b>회고 페이지로 이동하고 있어요</b>
+    <p class="muted">잠시만 기다려 주세요.</p>
+  </div>
+  <div id="offline" hidden>
+    <b>지금은 회고 페이지에 접속할 수 없어요</b>
+    <p class="muted">잠시 후 자동으로 다시 시도합니다.<br>계속 안 되면 담당 매니저에게 알려 주세요.</p>
+    <button class="btn" id="retry" type="button">다시 시도</button>
+  </div>
+  <p class="muted" style="margin-top:16px">이 주소를 즐겨찾기하면 다음에도 바로 들어올 수 있어요.</p>
+</main>
+<script>
+// 이동할 주소는 target.json 에 있다. 캐시를 피하려고 매번 새로 받는다(GitHub Pages 는 최대 10분 캐시).
+(() => {
+  const loading = document.getElementById("loading"), offline = document.getElementById("offline");
+  let timer = null;
+
+  function show(isOffline) { loading.hidden = isOffline; offline.hidden = !isOffline; }
+
+  async function withTimeout(url, ms, opts) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), ms);
+    try { return await fetch(url, { ...opts, signal: ctl.signal, cache: "no-store" }); }
+    finally { clearTimeout(t); }
+  }
+
+  async function go() {
+    clearTimeout(timer);
+    show(false);
+    try {
+      const r = await withTimeout("target.json?t=" + Date.now(), 8000);
+      const { url } = await r.json();
+      // 임시 터널 주소(또는 이 PC 테스트용 localhost)만 따라간다
+      if (!/^(https:\/\/[a-z0-9-]+\.trycloudflare\.com|http:\/\/(localhost|127\.0\.0\.1):\d+)\/$/.test(url || "")) throw new Error("no url");
+      // 서버가 살아 있는지 먼저 확인(꺼져 있으면 Cloudflare 오류 화면 대신 안내를 보여 준다)
+      const h = await withTimeout(url + "healthz", 8000, { mode: "cors" });
+      if (!h.ok || !(await h.json()).ok) throw new Error("down");
+      location.replace(url);
+    } catch (e) {
+      show(true);
+      timer = setTimeout(go, 15000);
+    }
+  }
+
+  document.getElementById("retry").addEventListener("click", go);
+  go();
+})();
+</script>
+</body>
+</html>
